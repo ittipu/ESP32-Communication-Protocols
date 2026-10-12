@@ -103,3 +103,7 @@ U8G2_SH1106_128X64_NONAME_F_HW_I2C oled(U8G2_R0, U8X8_PIN_NONE);
 
 Made for the **IoTBhai Full-Stack IoT Engineer Bootcamp**, Phase 1.
 Tested on an ESP32 DevKit with ESP32 Arduino core 3.x and a 1.3" SH1106 I2C OLED.
+
+## License
+
+[MIT](LICENSE). Use it, change it and share it in your own projects.
