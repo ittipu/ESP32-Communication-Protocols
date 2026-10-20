@@ -1,4 +1,4 @@
-# ESP32 Communication Protocols: I2C, One-Wire, SPI and UART
+# ESP32 Communication Protocols: I2C, SPI, UART and One-Wire
 
 Arduino code for **Chapter 13: Hardware Communication Protocols** of the **IoTBhai Full-Stack IoT Engineer Bootcamp**.
 
@@ -7,9 +7,9 @@ Each part of the chapter is a separate video and a separate folder. Each experim
 | Part | Protocol | Experiment | Code |
 |---|---|---|---|
 | 13.1 | **I2C**: "The Roll Call" | Scan the bus, then draw on a 1.3" SH1106 OLED | [`Part-1-I2C-OLED`](Part-1-I2C-OLED) |
-| 13.2 | One-Wire: "The Serial Number" | Two DS18B20 temperature sensors on one pin | Coming soon |
-| 13.3 | SPI: "The Tap on the Shoulder" | Waveshare 1.54" e-Paper display | Coming soon |
-| 13.4 | UART: "The Agreed Speed" | NEO-M8N GPS module | Coming soon |
+| 13.2 | **SPI**: "The Tap on the Shoulder" | Animated robot eyes on a Waveshare 1.54" e-Paper | [`Part-2-SPI-ePaper`](Part-2-SPI-ePaper) |
+| 13.3 | UART: "The Agreed Speed" | NEO-M8N GPS module | Coming soon |
+| 13.4 | One-Wire: "The Serial Number" | Two DS18B20 temperature sensors on one pin | Coming soon |
 
 ---
 
@@ -99,10 +99,83 @@ U8G2_SH1106_128X64_NONAME_F_HW_I2C oled(U8G2_R0, U8X8_PIN_NONE);
 
 ---
 
+## Part 13.2: ESP32 SPI with a Waveshare 1.54" e-Paper
+
+SPI picks a device by **which wire you pull**, not by an address. The ESP32 pulls one device's **CS** (chip select) pin LOW, like a tap on the shoulder, then clocks the data out fast on its own clock line. There are no addresses and no ACKs, which is why SPI runs at MHz speeds.
+
+### What you need
+
+| Part | Notes |
+|---|---|
+| ESP32 DevKit | Any ESP32 dev board |
+| Waveshare 1.54" e-Paper **V2** | 200×200, black and white, 8-pin SPI module. Check the sticker for "V2" |
+| 8 jumper wires | Female-to-female, or a breadboard |
+| USB data cable | A charge-only cable won't upload |
+
+### Wiring
+
+| e-Paper pin | ESP32 pin | What it does |
+|---|---|---|
+| VCC | 3V3 | Power |
+| GND | GND | Ground |
+| DIN | GPIO23 | SPI data in (MOSI) |
+| CLK | GPIO18 | SPI clock (SCK) |
+| CS | GPIO5 | Chip select |
+| DC | GPIO17 | Data or command |
+| RST | GPIO16 | Hardware reset |
+| BUSY | GPIO4 | Screen says "still refreshing, wait" |
+
+Only DIN, CLK and CS are SPI. DC, RST and BUSY are extra control pins the display needs. There's no MISO: the e-Paper never sends data back.
+
+> **WROVER board?** GPIO16 and 17 are used by its PSRAM. Move RST and DC to free pins and change the numbers in the constructor.
+
+### Software
+
+1. **Arduino IDE** with the **ESP32 board package** (core 3.x) installed.
+2. Board: **ESP32 Dev Module**.
+3. Libraries: install **GxEPD2** by *Jean-Marc Zingg* and **Adafruit GFX Library** from the Library Manager.
+
+### The sketch
+
+#### [`robot_eyes_e_paper`](Part-2-SPI-ePaper/robot_eyes_e_paper/robot_eyes_e_paper.ino): give the e-Paper a face
+
+An animated cartoon face: eyes with irises, eyelids and eyebrows, plus a mouth. It cycles through moods: neutral, blink, look left and right, happy, surprised, angry, sad, love, falls asleep ("Zz"), then wakes up.
+
+- **Partial refresh** draws each new face in about 0.3 s with no flash.
+- **A full refresh every 80 frames** wipes the faint "ghosts" that partial refreshes leave behind.
+- `#define DEMO_MODE 1` plays a scripted show. Set it to `0` for random, alive-looking behaviour.
+- `checkSensors()` has ready-made hooks (commented out) for a touch sensor, PIR, LDR or ultrasonic sensor to change the mood.
+
+The display uses this GxEPD2 constructor (pins: CS, DC, RST, BUSY):
+
+```cpp
+GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> display(GxEPD2_154_D67(5, 17, 16, 4));
+```
+
+### Troubleshooting
+
+| Problem | Likely cause | Fix |
+|---|---|---|
+| Garbage or nothing on screen | Wrong driver for your panel version | V2 uses `GxEPD2_154_D67`. The older V1 uses `GxEPD2_154` |
+| Serial Monitor says `Busy Timeout!` | BUSY wire missing or on the wrong pin | Check BUSY → GPIO4, and the last number in the constructor |
+| Screen flashes black and white | That's a full refresh | Normal for e-Paper. It happens on start-up and every 80 frames |
+| Faint grey shapes from old faces | Ghosting from partial refresh | Normal. The next full refresh clears it |
+| Upload fails or the board resets on a WROVER | GPIO16/17 are taken by PSRAM | Move RST and DC to free pins |
+
+### Key ideas
+
+- **Every SPI transfer is a swap.** On each clock tick one bit goes out on MOSI and one comes back on MISO.
+- **Wires:** SCK, MOSI and MISO are shared by every device. Each device gets its own CS wire.
+- **Speed:** MHz. The e-Paper runs at 4 MHz. The ESP32 can go up to 80 MHz.
+- **Short distances:** on the board, a few cm up to about 1 m.
+- **e-Paper keeps its image with no power.** `hibernate()` cuts the display's power and the picture stays.
+
+---
+
 ## About
 
 Made for the **IoTBhai Full-Stack IoT Engineer Bootcamp**, Phase 1.
-Tested on an ESP32 DevKit with ESP32 Arduino core 3.x and a 1.3" SH1106 I2C OLED.
+Tested on an ESP32 DevKit with ESP32 Arduino core 3.x, a 1.3" SH1106 I2C OLED and a Waveshare 1.54" e-Paper V2.
 
 ## License
 
