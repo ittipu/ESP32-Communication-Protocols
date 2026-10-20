@@ -165,6 +165,16 @@ GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> display(GxEPD2_154_D67(5, 17, 
 ### Key ideas
 
 - **Every SPI transfer is a swap.** On each clock tick one bit goes out on MOSI and one comes back on MISO.
+- **Reading takes two bytes: ask, then listen.** The device can't answer a command it hasn't finished hearing. Byte 1 sends the command, and what comes back is junk, so ignore it. Byte 2 sends a dummy byte just to make 8 clock ticks, and the answer comes back on MISO. Keep CS LOW across both bytes:
+
+  ```cpp
+  digitalWrite(CS, LOW);
+  SPI.transfer(0x8F);                // ask: "read register 0x0F". Ignore what comes back
+  uint8_t id = SPI.transfer(0x00);   // dummy byte out, the answer comes back in
+  digitalWrite(CS, HIGH);
+  ```
+
+  In short: **write = command + data**, **read = command + dummy**. Our e-Paper only ever writes, so it has no MISO pin.
 - **Wires:** SCK, MOSI and MISO are shared by every device. Each device gets its own CS wire.
 - **Speed:** MHz. The e-Paper runs at 4 MHz. The ESP32 can go up to 80 MHz.
 - **Short distances:** on the board, a few cm up to about 1 m.
