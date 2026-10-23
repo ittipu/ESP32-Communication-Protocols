@@ -22,7 +22,7 @@ I2C uses just two wires, **SDA** (data) and **SCL** (clock), shared by every dev
 | Part | Notes |
 |---|---|
 | ESP32 DevKit | Any ESP32 dev board with GPIO21 and GPIO22. Buy: [AliExpress](https://s.click.aliexpress.com/e/_c2IAMVUX) · [Amazon](https://amzn.to/493Wv5A) |
-| 1.3" OLED, SH1106, 128×64, I2C | The 4-pin version (GND, VCC, SCL, SDA) |
+| 1.3" OLED, SH1106, 128×64, I2C | The 4-pin version (GND, VCC, SCL, SDA). Buy: [AliExpress](https://s.click.aliexpress.com/e/_c4pvQOon) |
 | 4 jumper wires | Female-to-female, or a breadboard |
 | USB data cable | A charge-only cable won't upload |
 
