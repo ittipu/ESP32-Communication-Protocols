@@ -21,7 +21,7 @@ I2C uses just two wires, **SDA** (data) and **SCL** (clock), shared by every dev
 
 | Part | Notes |
 |---|---|
-| ESP32 DevKit | Any ESP32 dev board with GPIO21 and GPIO22 |
+| ESP32 DevKit | Any ESP32 dev board with GPIO21 and GPIO22. Buy: [AliExpress](https://s.click.aliexpress.com/e/_c2IAMVUX) · [Amazon](https://amzn.to/493Wv5A) |
 | 1.3" OLED, SH1106, 128×64, I2C | The 4-pin version (GND, VCC, SCL, SDA) |
 | 4 jumper wires | Female-to-female, or a breadboard |
 | USB data cable | A charge-only cable won't upload |
@@ -107,7 +107,7 @@ SPI picks a device by **which wire you pull**, not by an address. The ESP32 pull
 
 | Part | Notes |
 |---|---|
-| ESP32 DevKit | Any ESP32 dev board |
+| ESP32 DevKit | Any ESP32 dev board. Buy: [AliExpress](https://s.click.aliexpress.com/e/_c2IAMVUX) · [Amazon](https://amzn.to/493Wv5A) |
 | Waveshare 1.54" e-Paper **V2** | 200×200, black and white, 8-pin SPI module. Check the sticker for "V2" |
 | 8 jumper wires | Female-to-female, or a breadboard |
 | USB data cable | A charge-only cable won't upload |
@@ -190,8 +190,8 @@ UART has **no clock wire**. Both sides agree on a speed in advance, the **baud r
 
 | Part | Notes |
 |---|---|
-| ESP32 DevKit | Any ESP32 dev board |
-| u-blox NEO-M8N GPS module | With its antenna. Default speed: 9600 baud |
+| ESP32 DevKit | Any ESP32 dev board. Buy: [AliExpress](https://s.click.aliexpress.com/e/_c2IAMVUX) · [Amazon](https://amzn.to/493Wv5A) |
+| u-blox NEO-M8N GPS module | With its antenna. Default speed: 9600 baud. Buy: [AliExpress](https://s.click.aliexpress.com/e/_c3tp9i1t) · [Amazon](https://link.amazon/B06Ttmrpk) |
 | 4 jumper wires | Female-to-female, or a breadboard |
 | USB data cable | A charge-only cable won't upload |
 | A window | GPS needs a view of the sky for a fix |
@@ -269,6 +269,9 @@ Both sketches detect the two classic UART faults and print a hint in the Serial 
 
 Made for the **IoTBhai Full-Stack IoT Engineer Bootcamp**, Phase 1.
 Tested on an ESP32 DevKit with ESP32 Arduino core 3.x, a 1.3" SH1106 I2C OLED and a Waveshare 1.54" e-Paper V2.
+
+Some "Buy" links in this README are affiliate links. Buying through them supports the channel at no extra cost to you.
+More recommended parts: [amazon.com/shop/iotbhai](https://www.amazon.com/shop/iotbhai)
 
 ## License
 
