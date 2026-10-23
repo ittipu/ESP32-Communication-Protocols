@@ -8,7 +8,7 @@ Each part of the chapter is a separate video and a separate folder. Each experim
 |---|---|---|---|
 | 13.1 | **I2C**: "The Roll Call" | Scan the bus, then draw on a 1.3" SH1106 OLED | [`Part-1-I2C-OLED`](Part-1-I2C-OLED) |
 | 13.2 | **SPI**: "The Tap on the Shoulder" | Animated robot eyes on a Waveshare 1.54" e-Paper | [`Part-2-SPI-ePaper`](Part-2-SPI-ePaper) |
-| 13.3 | UART: "The Agreed Speed" | NEO-M8N GPS module | Coming soon |
+| 13.3 | **UART**: "The Agreed Speed" | Read a NEO-M8N GPS, with and without a library | [`Part-3-UART-GPS`](Part-3-UART-GPS) |
 | 13.4 | One-Wire: "The Serial Number" | Two DS18B20 temperature sensors on one pin | Coming soon |
 
 ---
@@ -179,6 +179,89 @@ GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> display(GxEPD2_154_D67(5, 17, 
 - **Speed:** MHz. The e-Paper runs at 4 MHz. The ESP32 can go up to 80 MHz.
 - **Short distances:** on the board, a few cm up to about 1 m.
 - **e-Paper keeps its image with no power.** `hibernate()` cuts the display's power and the picture stays.
+
+---
+
+## Part 13.3: ESP32 UART with a NEO-M8N GPS
+
+UART has **no clock wire**. Both sides agree on a speed in advance, the **baud rate**. At 9600 baud every bit lasts 104 µs. The receiver waits for the falling edge of the start bit, then reads each bit in its middle, timed by its own clock. You already know UART: it's what `Serial.begin(115200)` has been using since Chapter 6.
+
+### What you need
+
+| Part | Notes |
+|---|---|
+| ESP32 DevKit | Any ESP32 dev board |
+| u-blox NEO-M8N GPS module | With its antenna. Default speed: 9600 baud |
+| 4 jumper wires | Female-to-female, or a breadboard |
+| USB data cable | A charge-only cable won't upload |
+| A window | GPS needs a view of the sky for a fix |
+
+### Wiring
+
+| GPS pin | ESP32 pin | Notes |
+|---|---|---|
+| VCC | VIN | 5 V from USB. The GPS board has its own regulator |
+| GND | GND | The shared reference for HIGH and LOW |
+| TX | GPIO26 | ESP32 RX2: the GPS talks, the ESP32 listens |
+| RX | GPIO27 | ESP32 TX2: the ESP32 talks, the GPS listens |
+
+> **Cross the wires:** TX always goes to the other side's RX. TX to TX gives total silence.
+
+GPIO26 and 27 work on every ESP32, including WROVER boards, which use GPIO16 and 17 for PSRAM. The ESP32 can put its hardware UART on almost any pins, so you don't need SoftwareSerial:
+
+```cpp
+Serial2.begin(9600, SERIAL_8N1, 26, 27);   // baud, 8 data bits / no parity / 1 stop bit, RX, TX
+```
+
+### Software
+
+1. **Arduino IDE** with the **ESP32 board package** (core 3.x) installed.
+2. Board: **ESP32 Dev Module**.
+3. Library: install **TinyGPSPlus** by *Mikal Hart* from the Library Manager. It's only needed for sketch 2.
+4. Serial Monitor: **115200 baud**. That's UART0 to your PC. The GPS uses UART2 at 9600.
+
+### The sketches
+
+Both print a report every 3 seconds without `delay()`: UTC and local time, date, satellites, latitude and longitude, speed and a Google Maps link. Set `UTC_OFFSET` for your city (Dhaka is 6).
+
+#### 1. [`gps_no_library`](Part-3-UART-GPS/gps_no_library/gps_no_library.ino): decode NMEA by hand
+
+The GPS sends plain text sentences like this:
+
+```
+$GNRMC,081642.00,A,2346.84210,N,09024.61560,E,0.12,,290926,,,A*55
+```
+
+The sketch does everything itself:
+- Collects bytes into lines without blocking. `$` starts a sentence and a newline ends it.
+- Prints every raw sentence (`SHOW_RAW true`).
+- **Checks the checksum:** XOR of every character between `$` and `*` must equal the two hex digits after `*`. Sentences with a flipped bit are dropped.
+- **Decodes `$GxRMC`:** time, fix status (`A` = valid, `V` = no fix), position, speed and date.
+- **Decodes `$GxGGA`:** the number of satellites.
+- **Converts positions:** NMEA gives `ddmm.mmmm`, so `2346.84210` = 23° + 46.84210′ ÷ 60 = **23.780702°**.
+
+#### 2. [`gps_with_library`](Part-3-UART-GPS/gps_with_library/gps_with_library.ino): let TinyGPSPlus do it
+
+The same result in far less code. Feed every byte to `gps.encode()`, then ask for the values: `gps.location.lat()`, `gps.time.hour()` and so on. You also get altitude and HDOP (accuracy) for free.
+
+### Troubleshooting
+
+Both sketches detect the two classic UART faults and print a hint in the Serial Monitor:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| **Garbage characters**, or "Bytes arrive, but no valid sentence yet" | Wrong baud rate. Bytes arrive but are read at the wrong moments | Use 9600, the NEO-M8N default. Try `GPS_BAUD 4800` to see the garbage on purpose |
+| **Total silence**, or "Silence: no bytes from the GPS" | TX and RX not crossed (TX to TX), or no shared GND | GPS TX → GPIO26, GPS RX → GPIO27, GND → GND |
+| "Fix none yet" / status `V` | No view of the sky | Move near a window. A cold start can take 30 s or more. Indoors at a desk, maybe never |
+| Wrong local time | Time zone | GPS time is always UTC. Change `UTC_OFFSET` |
+
+### Key ideas
+
+- **No clock wire:** both sides agree on the baud rate. Each character starts with a start bit that restarts the receiver's stopwatch.
+- **Bits go lowest first.** "G" (0x47 = 01000111) goes out as 1 1 1 0 0 0 1 0. The UART hardware reverses it for you.
+- **8N1** = 8 data bits, no parity, 1 stop bit. That's 10 bits per character, so 9600 baud carries 960 characters per second.
+- **One partner per port:** no addresses and no chip select. Need another device? Use another UART. The ESP32 has three.
+- **Wires:** TX and RX, crossed over, plus a shared GND. Good for a few meters at 3.3 V logic levels.
 
 ---
 
