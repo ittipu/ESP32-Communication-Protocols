@@ -108,7 +108,7 @@ SPI picks a device by **which wire you pull**, not by an address. The ESP32 pull
 | Part | Notes |
 |---|---|
 | ESP32 DevKit | Any ESP32 dev board. Buy: [AliExpress](https://s.click.aliexpress.com/e/_c2IAMVUX) · [Amazon](https://amzn.to/493Wv5A) |
-| Waveshare 1.54" e-Paper **V2** | 200×200, black and white, 8-pin SPI module. Check the sticker for "V2" |
+| Waveshare 1.54" e-Paper **V2** | 200×200, black and white, 8-pin SPI module. Check the sticker for "V2". Buy: [AliExpress](https://s.click.aliexpress.com/e/_c4q44gOb) |
 | 8 jumper wires | Female-to-female, or a breadboard |
 | USB data cable | A charge-only cable won't upload |
 
