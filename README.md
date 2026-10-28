@@ -9,7 +9,7 @@ Each part of the chapter is a separate video and a separate folder. Each experim
 | 13.1 | **I2C**: "The Roll Call" | Scan the bus, then draw on a 1.3" SH1106 OLED | [`Part-1-I2C-OLED`](Part-1-I2C-OLED) |
 | 13.2 | **SPI**: "The Tap on the Shoulder" | Animated robot eyes on a Waveshare 1.54" e-Paper | [`Part-2-SPI-ePaper`](Part-2-SPI-ePaper) |
 | 13.3 | **UART**: "The Agreed Speed" | Read a NEO-M8N GPS, with and without a library | [`Part-3-UART-GPS`](Part-3-UART-GPS) |
-| 13.4 | One-Wire: "The Serial Number" | Two DS18B20 temperature sensors on one pin | Coming soon |
+| 13.4 | **One-Wire**: "The Serial Number" | Find a DS18B20's 64-bit ID, then read the temperature | [`Part-4-OneWire-DS18B20`](Part-4-OneWire-DS18B20) |
 
 ---
 
@@ -262,6 +262,113 @@ Both sketches detect the two classic UART faults and print a hint in the Serial 
 - **8N1** = 8 data bits, no parity, 1 stop bit. That's 10 bits per character, so 9600 baud carries 960 characters per second.
 - **One partner per port:** no addresses and no chip select. Need another device? Use another UART. The ESP32 has three.
 - **Wires:** TX and RX, crossed over, plus a shared GND. Good for a few meters at 3.3 V logic levels.
+
+---
+
+## Part 13.4: ESP32 One-Wire with a DS18B20 temperature sensor
+
+One-Wire uses **one data wire** (DQ), shared by every sensor. There's no clock wire and no address you set: each DS18B20 carries a unique **64-bit ID burned in at the factory**, and the ESP32 picks a sensor by that ID. Many sensors can share one pin and one resistor, over tens of meters of cable.
+
+### What you need
+
+| Part | Notes |
+|---|---|
+| ESP32 DevKit | Any ESP32 dev board. Buy: [AliExpress](https://s.click.aliexpress.com/e/_c2IAMVUX) · [Amazon](https://amzn.to/493Wv5A) |
+| DS18B20 temperature sensor | The TO-92 chip or the waterproof probe. Both work the same |
+| 4.7 kΩ resistor | The pull-up. **Don't skip it** |
+| Breadboard + 3 jumper wires | |
+| USB data cable | A charge-only cable won't upload |
+
+### Wiring
+
+| DS18B20 pin | ESP32 pin | Waterproof probe wire |
+|---|---|---|
+| VDD | 3V3 | Red |
+| GND | GND | Black |
+| DQ | GPIO27 (D27) | Yellow (sometimes white) |
+
+**Plus a 4.7 kΩ resistor between DQ and 3V3.** It works the same way as on I2C: sensors can only pull the line LOW, and the resistor pulls it back HIGH. One resistor serves the whole bus.
+
+> **Want more sensors?** Connect them to the same three wires: same pin, still one resistor. Both sketches loop over every sensor they find, so a second one simply shows up.
+
+### Software
+
+1. **Arduino IDE** with the **ESP32 board package** (core 3.x) installed.
+2. Board: **ESP32 Dev Module**.
+3. Libraries: install **OneWire** by *Paul Stoffregen* and **DallasTemperature** by *Miles Burton* from the Library Manager.
+4. Serial Monitor: **115200 baud**.
+
+### The sketches
+
+Run them in this order.
+
+#### 1. [`ds18b20_find_id`](Part-4-OneWire-DS18B20/ds18b20_find_id/ds18b20_find_id.ino): ask the bus who's out there
+
+`sensors.begin()` searches the bus and finds every sensor's 64-bit ID. The sketch prints each one and **checks its CRC**:
+
+```
+Found 1 sensor(s) on GPIO27
+Sensor 0: 28 61 64 12 3C 4A 1F 1E (CRC OK)
+```
+
+Your ID will be different. Every DS18B20 has its own. How to read it:
+
+| Byte | Example | Meaning |
+|---|---|---|
+| 0 | `28` | Family code: "I'm a DS18B20" |
+| 1 to 6 | `61 64 12 3C 4A 1F` | 48-bit serial number, laser-burned at the factory |
+| 7 | `1E` | CRC, calculated from bytes 0 to 6. If a bit flips on a long cable, the ESP32 notices |
+
+#### 2. [`ds18b20_read_temp`](Part-4-OneWire-DS18B20/ds18b20_read_temp/ds18b20_read_temp.ino): read the temperature without freezing the loop
+
+A 12-bit reading (0.0625 °C steps) takes up to **750 ms**. With `delay(750)` the ESP32 would freeze for three quarters of every second. Instead, the sketch starts a conversion with `setWaitForConversion(false)` and comes back with `millis()` when it's ready, so `loop()` stays free:
+
+```
+Sensor 0: 27.44 C
+Sensor 0: 27.50 C
+```
+
+Hold the sensor between your fingers and watch the number climb.
+
+| Resolution | Steps | Time per reading |
+|---|---|---|
+| 9-bit | 0.5 °C | 94 ms |
+| 10-bit | 0.25 °C | 188 ms |
+| 11-bit | 0.125 °C | 375 ms |
+| **12-bit** | **0.0625 °C** | **750 ms** (this sketch) |
+
+### Troubleshooting
+
+| You see | Cause | Fix |
+|---|---|---|
+| **`-127.00`** | The sensor didn't answer | Check DQ → GPIO27, VDD, GND and, above all, the **4.7 kΩ pull-up** between DQ and 3V3 |
+| **`85.00`** | Read before the conversion finished. That's the sensor's power-on value | Wait the full conversion time, as the sketch does with `millis()` |
+| `Found 0 sensor(s)` | Wiring, or the sensor is in backwards | TO-92 flat side facing you: GND, DQ, VDD from left to right. Backwards it gets hot |
+| `CRC BAD` | Noise on a long cable | Shorter cable, or a stronger pull-up (e.g. 2.2 kΩ) on long runs |
+
+### Key ideas
+
+- **One data wire:** DQ, plus GND and power. The DS18B20 can even steal power from DQ ("parasite power"), but normal 3-wire power is more reliable.
+- **Timing is the language:** a long LOW is a reset, the sensors answer with a "presence" pulse, a short LOW is a 1 and a long LOW is a 0.
+- **Every sensor has a 64-bit ID:** family code + 48-bit serial + CRC. The ESP32 picks a sensor by its ID (Match ROM, 0x55).
+- **The search game (Search ROM, 0xF0):** bit by bit, every sensor says its bit, then the opposite. Because LOW always wins, the ESP32 can tell "everyone has 0", "everyone has 1" or "they disagree". It follows one branch to find one ID, then searches again for the next.
+- **Speed:** about 16 kbit/s. Slow, but plenty for temperature, and it works over **tens of meters** of cable.
+
+---
+
+## Chapter 13 complete
+
+| | I2C | SPI | UART | One-Wire |
+|---|---|---|---|---|
+| **Signal wires** | 2 (SDA + SCL) | 4+ (SCK, MOSI, MISO + 1 CS each) | 2 (TX + RX) | 1 (DQ) |
+| **Speed** | 100 / 400 kHz | MHz (up to 80 on ESP32) | 9600–115200 baud | ~16 kbit/s |
+| **Cable length** | Short (under ~1 m) | Short (on the board) | A few meters | Long (tens of meters) |
+| **Picks a device by** | 7-bit address | CS pin | Nobody: one partner per port | 64-bit ROM ID |
+| **Our device** | 1.3" SH1106 OLED | Waveshare 1.54" e-Paper | NEO-M8N GPS | DS18B20 |
+
+**The pattern:** more wires buy you speed. Fewer wires buy you distance and sharing.
+
+Next: **Chapter 14, Working with Actuators.** The ESP32 can talk; now it starts moving things: relays, DC motors and servos.
 
 ---
 
